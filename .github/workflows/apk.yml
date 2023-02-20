@@ -1,0 +1,30 @@
+# Modified from https://gist.github.com/alexanderbazo/227476190ef5ab655795e34ec0d314d6
+name: Build APK
+
+on:
+  push
+
+jobs:
+  apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'temurin'
+      - name: Build APK
+        run: |
+          cd android_app
+          bash ./gradlew build
+          cp app/build/outputs/apk/debug/app-debug.apk ~/TunProxy-debug.apk
+      - name: Calculate SHA-256 checksum
+        run: sha256sum ~/TunProxy-debug.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: Debug build
+          path: ~/TunProxy-debug.apk
