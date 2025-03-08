@@ -52,30 +52,43 @@ Disallowed Application と Allowed Application の２つのモードがありま
 
 ### Settings 検索
 
-![Menu Settings](images/Menu-Settings-Search.png) / ![Menu Settings](images/Menu-Settings-SortBy.png)
+![Menu Settings](images/Menu-Settings-Search.png) / ![Menu Settings](images/Menu-Settings-Menu.png)
 
 画面上部の検索アイコン(![Menu](images/Search.png))から、アプリケーションを絞り込めます。
 アプリケーション名または、パッケージ名に指定したキーワードを含むアプリケーションのみが表示されます。
 
 プリケーションリストは、画面上部のメニューアイコン(![Menu](images/Menu.png))からソートできます。
 
-* order by asc
-  * 昇順にソートします
+### Settings Menu
 
-* order by desc
-  * 降順にソートします
+アプリ一覧の表示方法を変更します。
 
-* filter by app name
-  * アプリケーション名に指定したキーワードを含むものを検索します。
+* show system app
+  * システムアプリを表示します。
 
-* filter by package name
-  * パッケージ名に指定したキーワードを含むものを検索します。
+#### sort by
 
-* sort by app name
+* app name
   * アプリケーション名でアプリケーションリストを並べ替えます。
 
-* sort by package name
+* package name
   * パッケージ名でアプリケーションリストを並べ替えます。
+
+#### order by
+
+* ascending
+  * 昇順にソートします
+
+* descending
+  * 降順にソートします
+
+#### filter by
+
+* app name
+  * アプリケーション名に指定したキーワードを含むものを検索します。
+
+* package name
+  * パッケージ名に指定したキーワードを含むものを検索します。
 
 ### MITM (SSL 復号化)
 

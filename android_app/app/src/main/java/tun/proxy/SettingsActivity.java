@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 //import android.os.AsyncTask;
@@ -24,6 +25,7 @@ import android.widget.*;
 
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,6 +37,28 @@ import tun.utils.ProgressTask;
 public class SettingsActivity extends AppCompatActivity {
     private static final String TAG = "SettingsActivity";
     private static final String TITLE_TAG = "Settings";
+
+    public enum FilterAppType {
+        SYSTEM_APP,
+        OS_APP;
+
+        public static EnumSet<FilterAppType> parseEnumSet(String s) {
+            EnumSet<FilterAppType> filterType = EnumSet.noneOf(FilterAppType.class);
+            if (!s.startsWith("[") && s.endsWith("]")) {
+                throw new IllegalArgumentException("No enum constant " + FilterAppType.class.getCanonicalName() + "." + s);
+            }
+            String content = s.substring(1, s.length() - 1).trim();
+            if (content.isEmpty()) {
+                return filterType;
+            }
+            for (String t : content.split(",")) {
+                String v = t.trim();
+                filterType.add(Enum.valueOf(FilterAppType.class, v.replaceAll("\"", "")));
+            }
+            return filterType;
+        }
+
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -185,13 +209,16 @@ public class SettingsActivity extends AppCompatActivity {
     protected static class PackageListFragment extends PreferenceFragmentCompat
             implements SearchView.OnQueryTextListener, SearchView.OnCloseListener {
         private final Map<String, Boolean> mAllPackageInfoMap = new HashMap<>();
-        private final static String PREF_VPN_APPLICATION_ORDERBY = "pref_vpn_application_app_orderby";
-        private final static String PREF_VPN_APPLICATION_FILTERBY = "pref_vpn_application_app_filterby";
-        private final static String PREF_VPN_APPLICATION_SORTBY = "pref_vpn_application_app_sortby";
+        private final static String PREF_VPN_APPLICATION_APP_TYPE = "pref_vpn_application_app_system";
+        private final static String PREF_VPN_APPLICATION_ORDER_BY = "pref_vpn_application_app_orderby";
+        private final static String PREF_VPN_APPLICATION_FILTER_BY = "pref_vpn_application_app_filterby";
+        private final static String PREF_VPN_APPLICATION_SORT_BY = "pref_vpn_application_app_sortby";
 
         private AsyncTaskProgress task;
 
         private MyApplication.VPNMode mode;
+
+        private EnumSet<FilterAppType> filterAppType = EnumSet.noneOf(FilterAppType.class);
         private MyApplication.AppSortBy appSortBy = MyApplication.AppSortBy.APPNAME;
         private MyApplication.AppOrderBy appOrderBy = MyApplication.AppOrderBy.ASC;
         private MyApplication.AppSortBy appFilterBy = MyApplication.AppSortBy.APPNAME;
@@ -222,6 +249,9 @@ public class SettingsActivity extends AppCompatActivity {
             this.searchView.setOnQueryTextListener(this);
             this.searchView.setOnCloseListener(this);
             this.searchView.setSubmitButtonEnabled(false);
+
+            final MenuItem menuShowSystemApp = menu.findItem(R.id.menu_filter_app_system);
+            menuShowSystemApp.setChecked(this.filterAppType.contains(FilterAppType.SYSTEM_APP));
 
             switch (this.appOrderBy) {
                 case ASC: {
@@ -267,15 +297,16 @@ public class SettingsActivity extends AppCompatActivity {
         private SearchView searchView;
 
         protected void filter(String filter) {
-            this.filter(filter, this.appFilterBy, this.appOrderBy, this.appSortBy);
+            this.filter(filter, this.appFilterBy, this.appOrderBy, this.appSortBy, this.filterAppType);
         }
 
-        protected void filter(String filter, final MyApplication.AppSortBy filterBy, final MyApplication.AppOrderBy orderBy, final MyApplication.AppSortBy sortBy) {
+        protected void filter(String filter, final MyApplication.AppSortBy filterBy, final MyApplication.AppOrderBy orderBy, final MyApplication.AppSortBy sortBy, EnumSet<FilterAppType> filterAppType) {
             if (filter == null) {
                 filter = searchFilter;
             } else {
                 searchFilter = filter;
             }
+            this.filterAppType = filterAppType;
             this.appFilterBy = filterBy;
             this.appOrderBy = orderBy;
             this.appSortBy = sortBy;
@@ -307,9 +338,10 @@ public class SettingsActivity extends AppCompatActivity {
             storeSelectedPackageSet(selected);
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MyApplication.getInstance().getApplicationContext());
             SharedPreferences.Editor edit = prefs.edit();
-            edit.putString(PREF_VPN_APPLICATION_ORDERBY, this.appOrderBy.name());
-            edit.putString(PREF_VPN_APPLICATION_FILTERBY, this.appFilterBy.name());
-            edit.putString(PREF_VPN_APPLICATION_SORTBY, this.appSortBy.name());
+            edit.putString(PREF_VPN_APPLICATION_APP_TYPE, this.filterAppType.toString());
+            edit.putString(PREF_VPN_APPLICATION_ORDER_BY, this.appOrderBy.name());
+            edit.putString(PREF_VPN_APPLICATION_FILTER_BY, this.appFilterBy.name());
+            edit.putString(PREF_VPN_APPLICATION_SORT_BY, this.appSortBy.name());
             edit.apply();
         }
 
@@ -321,9 +353,11 @@ public class SettingsActivity extends AppCompatActivity {
                 this.mAllPackageInfoMap.put(pkgName, loadMap.contains(pkgName));
             }
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MyApplication.getInstance().getApplicationContext());
-            String appOrderBy = prefs.getString(PREF_VPN_APPLICATION_ORDERBY, MyApplication.AppOrderBy.ASC.name());
-            String appFilterBy = prefs.getString(PREF_VPN_APPLICATION_FILTERBY, MyApplication.AppSortBy.APPNAME.name());
-            String appSortBy = prefs.getString(PREF_VPN_APPLICATION_SORTBY, MyApplication.AppSortBy.APPNAME.name());
+            String filterAppType = prefs.getString(PREF_VPN_APPLICATION_APP_TYPE, this.filterAppType.toString());
+            this.filterAppType = FilterAppType.parseEnumSet(filterAppType);
+            String appOrderBy = prefs.getString(PREF_VPN_APPLICATION_ORDER_BY, MyApplication.AppOrderBy.ASC.name());
+            String appFilterBy = prefs.getString(PREF_VPN_APPLICATION_FILTER_BY, MyApplication.AppSortBy.APPNAME.name());
+            String appSortBy = prefs.getString(PREF_VPN_APPLICATION_SORT_BY, MyApplication.AppSortBy.APPNAME.name());
             this.appOrderBy = Enum.valueOf(MyApplication.AppOrderBy.class, appOrderBy);
             this.appFilterBy = Enum.valueOf(MyApplication.AppSortBy.class, appFilterBy);
             this.appSortBy = Enum.valueOf(MyApplication.AppSortBy.class, appSortBy);
@@ -461,13 +495,23 @@ public class SettingsActivity extends AppCompatActivity {
                 case android.R.id.home:
                     startActivity(new Intent(getActivity(), SettingsActivity.class));
                     return true;
+                case R.id.menu_filter_app_system:
+                    item.setChecked(!item.isChecked());
+                    if (item.isChecked()) {
+                        this.filterAppType.add(FilterAppType.SYSTEM_APP);
+                    }
+                    else {
+                        this.filterAppType.remove(FilterAppType.SYSTEM_APP);
+                    }
+                    filter(null, appFilterBy, MyApplication.AppOrderBy.ASC, appSortBy, this.filterAppType);
+                    break;
                 case R.id.menu_sort_order_asc:
                     item.setChecked(!item.isChecked());
-                    filter(null, appFilterBy, MyApplication.AppOrderBy.ASC, appSortBy);
+                    filter(null, appFilterBy, MyApplication.AppOrderBy.ASC, appSortBy, this.filterAppType);
                     break;
                 case R.id.menu_sort_order_desc:
                     item.setChecked(!item.isChecked());
-                    filter(null, appFilterBy, MyApplication.AppOrderBy.DESC, appSortBy);
+                    filter(null, appFilterBy, MyApplication.AppOrderBy.DESC, appSortBy, this.filterAppType);
                     break;
                 case R.id.menu_filter_app_name:
                     item.setChecked(!item.isChecked());
@@ -481,11 +525,11 @@ public class SettingsActivity extends AppCompatActivity {
                     break;
                 case R.id.menu_sort_app_name:
                     item.setChecked(!item.isChecked());
-                    filter(null, appFilterBy, appOrderBy, MyApplication.AppSortBy.APPNAME);
+                    filter(null, appFilterBy, appOrderBy, MyApplication.AppSortBy.APPNAME, this.filterAppType);
                     break;
                 case R.id.menu_sort_pkg_name:
                     item.setChecked(!item.isChecked());
-                    filter(null, appFilterBy, appOrderBy, MyApplication.AppSortBy.PKGNAME);
+                    filter(null, appFilterBy, appOrderBy, MyApplication.AppSortBy.PKGNAME, this.filterAppType);
                     break;
             }
             return super.onOptionsItemSelected(item);
@@ -537,10 +581,10 @@ public class SettingsActivity extends AppCompatActivity {
 
         @Override
         protected List<PackageInfo> doInBackground(String... params) {
-            return filterPackages(packageFragment.searchFilter, packageFragment.appFilterBy, packageFragment.appOrderBy, packageFragment.appSortBy);
+            return filterPackages(packageFragment.searchFilter, packageFragment.appFilterBy, packageFragment.appOrderBy, packageFragment.appSortBy, packageFragment.filterAppType);
         }
 
-        private List<PackageInfo> filterPackages(String filter, final MyApplication.AppSortBy filterBy, final MyApplication.AppOrderBy orderBy, final MyApplication.AppSortBy sortBy) {
+        private List<PackageInfo> filterPackages(String filter, final MyApplication.AppSortBy filterBy, final MyApplication.AppOrderBy orderBy, final MyApplication.AppSortBy sortBy, EnumSet<FilterAppType> filterAppType) {
             final Context context = MyApplication.getInstance().getApplicationContext();
             final PackageManager pm = context.getPackageManager();
             final List<PackageInfo> installedPackages = pm.getInstalledPackages(PackageManager.GET_META_DATA);
@@ -559,11 +603,6 @@ public class SettingsActivity extends AppCompatActivity {
                             t2 = o2.packageName;
                             break;
                     }
-//                    try {
-//                        Thread.sleep(100);
-//                    } catch (InterruptedException e) {
-//                        e.printStackTrace();
-//                    }
                     if (MyApplication.AppOrderBy.ASC.equals(orderBy))
                         return t1.compareTo(t2);
                     else
@@ -576,6 +615,12 @@ public class SettingsActivity extends AppCompatActivity {
                 // exclude self package
                 if (pi.packageName.equals(MyApplication.getInstance().getPackageName())) {
                     continue;
+                }
+                // exclude system app
+                if (!filterAppType.contains(FilterAppType.SYSTEM_APP)) {
+                    if ((pi.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) == ApplicationInfo.FLAG_SYSTEM) {
+                        continue;
+                    }
                 }
                 boolean checked = packageFragment.mAllPackageInfoMap.containsKey(pi.packageName) ? packageFragment.mAllPackageInfoMap.get(pi.packageName) : false;
                 installedPackageMap.put(pi.packageName, checked);
@@ -594,6 +639,12 @@ public class SettingsActivity extends AppCompatActivity {
                 // exclude self package
                 if (pi.packageName.equals(MyApplication.getInstance().getPackageName())) {
                     continue;
+                }
+                // exclude system app
+                if (!packageFragment.filterAppType.contains(FilterAppType.SYSTEM_APP)) {
+                    if ((pi.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) == ApplicationInfo.FLAG_SYSTEM) {
+                        continue;
+                    }
                 }
                 String t1 = "";
                 String t2 = packageFragment.searchFilter.trim();
